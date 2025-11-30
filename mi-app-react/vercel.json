@@ -1,16 +1,5 @@
 {
-<<<<<<< HEAD
-  "rewrites": [{ "source": "/(.*)", "destination": "/" }]
-=======
-  "builds": [
-    {
-      "src": "package.json",
-      "use": "@vercel/static-build",
-      "config": { "distDir": "dist" }
-    }
-  ],
-  "routes": [
-    { "src": "/(.*)", "dest": "/index.html" }
+  "rewrites": [
+    { "source": "/(.*)", "destination": "/index.html" }
   ]
->>>>>>> 4247742 (Config Vercel para Vite)
 }

@@ -4,27 +4,25 @@ import "./App.css";
 import PantallaInicio from "./components/PantallaInicio";
 import PantallaPrincipal from "./components/PantallaPrincipal";
 import PantallaDetalle from "./components/PantallaDetalle";
+import { useLocalStorage } from "./hooks/useLocalStorage";
 
 import { db } from "./firebase"; // Solo Firestore
 import { doc, setDoc, getDoc } from "firebase/firestore";
 
-import {
-  temasPoliciaNacional,
-  temasGuardiaCivil,
-  temasFuncionarioPrisiones,
-} from "./temas";
-
+import { temasPoliciaNacional, temasGuardiaCivil, temasFuncionarioPrisiones } from "./temas";
 import { v4 as uuidv4 } from "uuid"; // Para generar ID único por usuario
 
 export default function App() {
   const [pantalla, setPantalla] = useState("inicio");
   const [bolaActiva, setBolaActiva] = useState(null);
   const [contador, setContador] = useState(0);
-  const [progreso, setProgreso] = useState({});
   const [color, setColor] = useState("#444");
-  const [organizacion, setOrganizacion] = useState("");
-  const [objetivos, setObjetivos] = useState({});
   const [usuarioId, setUsuarioId] = useState(null);
+
+  // Datos persistentes con localStorage
+  const [progreso, setProgreso] = useLocalStorage("progreso", {});
+  const [organizacion, setOrganizacion] = useLocalStorage("organizacion", "");
+  const [objetivos, setObjetivos] = useLocalStorage("objetivos", {});
 
   // Generar un ID único para el usuario
   useEffect(() => {
@@ -40,9 +38,9 @@ export default function App() {
       const docSnap = await getDoc(doc(db, "usuarios", id));
       if (docSnap.exists()) {
         const data = docSnap.data();
-        setProgreso(data.progreso || {});
-        setObjetivos(data.objetivos || {});
-        setOrganizacion(data.organizacion || "");
+        setProgreso(data.progreso || progreso);
+        setObjetivos(data.objetivos || objetivos);
+        setOrganizacion(data.organizacion || organizacion);
       }
     })();
   }, []);
@@ -62,7 +60,7 @@ export default function App() {
       ...progreso,
       [bolaActiva]: { color: nuevoColor, contador: nuevoContador },
     };
-    setProgreso(nuevos);
+    setProgreso(nuevos); // Esto también actualiza localStorage
     guardarDatosUsuario(nuevos, objetivos);
   };
 
@@ -84,7 +82,7 @@ export default function App() {
       ...objetivos,
       [claveTema]: [...(objetivos[claveTema] || []), nuevo.trim()],
     };
-    setObjetivos(nuevos);
+    setObjetivos(nuevos); // Esto también actualiza localStorage
     guardarDatosUsuario(progreso, nuevos);
   };
 
@@ -108,7 +106,6 @@ export default function App() {
       {pantalla === "inicio" && (
         <PantallaInicio setPantalla={setPantalla} setOrganizacion={setOrganizacion} />
       )}
-
       {pantalla === "principal" && (
         <PantallaPrincipal
           temas={temas}
@@ -118,7 +115,6 @@ export default function App() {
           organizacion={organizacion}
         />
       )}
-
       {pantalla === "detalle" && (
         <PantallaDetalle
           temas={temas}
