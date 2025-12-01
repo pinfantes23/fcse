@@ -1,19 +1,36 @@
+import { useState, useEffect, useRef } from "react";
+
 export default function PantallaPrincipal({ temas, progreso, abrirBola, setPantalla, organizacion }) {
   let encabezado = "";
-  let colorEncabezado = "#000"; // declaramos la variable con valor por defecto
+  let colorEncabezado = "#000";
 
   if (organizacion === "Policía Nacional") {
     encabezado = "CUERPO NACIONAL DE POLICÍA";
-    colorEncabezado = "#3498db"; // azul
+    colorEncabezado = "#3498db";
   } else if (organizacion === "Guardia Civil") {
     encabezado = "GUARDIA CIVIL";
-    colorEncabezado = "#28a745"; // verde
+    colorEncabezado = "#28a745";
   } else if (organizacion === "Funcionario de prisiones") {
     encabezado = "FUNCIONARIO DE PRISIONES";
-    colorEncabezado = "#8b4513"; // marrón
+    colorEncabezado = "#8b4513";
   }
 
   const anchoBolas = 5 * 60 + 4 * 10; // 5 columnas * 60px + 4 gaps de 10px
+
+  const h2Ref = useRef();
+  const [fontSize, setFontSize] = useState(20); // tamaño inicial
+
+  useEffect(() => {
+    if (!h2Ref.current) return;
+    let tamaño = 20; // tamaño máximo
+    h2Ref.current.style.fontSize = `${tamaño}px`;
+
+    while (h2Ref.current.scrollWidth > anchoBolas && tamaño > 10) {
+      tamaño -= 1;
+      h2Ref.current.style.fontSize = `${tamaño}px`;
+    }
+    setFontSize(tamaño);
+  }, [encabezado, anchoBolas]);
 
   return (
     <div
@@ -24,10 +41,9 @@ export default function PantallaPrincipal({ temas, progreso, abrirBola, setPanta
         flexDirection: "column",
         alignItems: "center",
         paddingTop: "60px",
-        gap: "20px", // espacio entre encabezado y bolas
+        gap: "20px",
       }}
     >
-      {/* Botón volver */}
       <button
         className="volver"
         onClick={() => setPantalla("inicio")}
@@ -41,15 +57,17 @@ export default function PantallaPrincipal({ temas, progreso, abrirBola, setPanta
         ←
       </button>
 
-      {/* Encabezado centrado y con ancho igual al grid */}
+      {/* Encabezado centrado y tamaño dinámico */}
       <div
         style={{
           width: `${anchoBolas}px`,
           textAlign: "center",
-          whiteSpace: "nowrap", // evita que se divida en dos líneas
+          margin: "0 auto",
         }}
       >
-        <h2 style={{ margin: 0, color: colorEncabezado }}>{encabezado}</h2>
+        <h2 ref={h2Ref} style={{ margin: 0, color: colorEncabezado, fontSize: `${fontSize}px` }}>
+          {encabezado}
+        </h2>
       </div>
 
       {/* Contenedor de bolas */}
@@ -62,7 +80,8 @@ export default function PantallaPrincipal({ temas, progreso, abrirBola, setPanta
         }}
       >
         {Object.keys(temas).map((num) => {
-          const color = progreso[num]?.color || "#444";
+          const claveTema = `${organizacion}-${num}`; // clave combinada organización-bola
+          const color = progreso[claveTema]?.color || "#444"; // color actualizado según progreso
           return (
             <div
               key={num}
@@ -75,6 +94,9 @@ export default function PantallaPrincipal({ temas, progreso, abrirBola, setPanta
                 justifyContent: "center",
                 alignItems: "center",
                 cursor: "pointer",
+                borderRadius: "50%",
+                color: "#fff",
+                fontWeight: "bold",
               }}
               onClick={() => abrirBola(Number(num))}
             >

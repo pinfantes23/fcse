@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import PopupObjetivo from "./PopupObjetivo";
 
 export default function PantallaDetalle({
@@ -12,7 +12,10 @@ export default function PantallaDetalle({
   organizacion,
   objetivos,
   setObjetivos,
-  setPantalla
+  progreso,
+  setProgreso,
+  setPantalla,
+  añadirObjetivo
 }) {
   const [mostrarPopup, setMostrarPopup] = useState(false);
   const [mostrarConfirmar, setMostrarConfirmar] = useState(false);
@@ -21,15 +24,59 @@ export default function PantallaDetalle({
   const claveTema = `${organizacion}-${bolaActiva}`;
   const comentariosTema = objetivos[claveTema] || [];
 
-  const añadirObjetivo = (nuevo) => {
-    if (nuevo.trim() === "") return;
-    if (comentariosTema.length >= 10) return; // extra seguridad
+  useEffect(() => {
+    if (!progreso[claveTema]) {
+      const nuevosProgreso = {
+        ...progreso,
+        [claveTema]: { color, contador }
+      };
+      setProgreso(nuevosProgreso);
+      localStorage.setItem(`progreso-${organizacion}`, JSON.stringify(nuevosProgreso));
+    }
+  }, [claveTema]);
+
+  const colorBola = progreso[claveTema]?.color || color;
+  const contadorBola = progreso[claveTema]?.contador ?? contador;
+
+  const actualizarProgreso = (nuevoColor, nuevoContador) => {
+    const nuevosProgreso = {
+      ...progreso,
+      [claveTema]: {
+        color: nuevoColor ?? colorBola,
+        contador: nuevoContador ?? contadorBola
+      }
+    };
+    setProgreso(nuevosProgreso);
+    localStorage.setItem(`progreso-${organizacion}`, JSON.stringify(nuevosProgreso));
+  };
+
+  const cambiarColorBola = (nuevoColor) => {
+    let nuevoContador = contadorBola;
+    if (nuevoColor === "#444") {
+      // “Sin empezar” reinicia contador
+      nuevoContador = 0;
+      setContador(0);
+    }
+    actualizarProgreso(nuevoColor, nuevoContador);
+    cambiarColor(nuevoColor);
+  };
+
+  const cambiarContadorBola = (delta) => {
+    const nuevoContador = Math.max(0, contadorBola + delta);
+    actualizarProgreso(colorBola, nuevoContador);
+    setContador(nuevoContador);
+    cambiarContador(delta);
+  };
+
+  const añadirObjetivoLocal = (nuevo) => {
+    if (!nuevo.trim() || comentariosTema.length >= 10) return;
     const actualizados = {
       ...objetivos,
       [claveTema]: [...comentariosTema, nuevo.trim()]
     };
     setObjetivos(actualizados);
-    localStorage.setItem("objetivos", JSON.stringify(actualizados));
+    localStorage.setItem(`objetivos-${organizacion}`, JSON.stringify(actualizados));
+    añadirObjetivo(nuevo);
   };
 
   const pedirEliminar = (idx) => {
@@ -43,14 +90,22 @@ export default function PantallaDetalle({
       [claveTema]: comentariosTema.filter((_, idx) => idx !== objetivoAEliminar)
     };
     setObjetivos(actualizados);
-    localStorage.setItem("objetivos", JSON.stringify(actualizados));
+    localStorage.setItem(`objetivos-${organizacion}`, JSON.stringify(actualizados));
     setMostrarConfirmar(false);
     setObjetivoAEliminar(null);
   };
 
+  const colores = [
+    { color: "#1e8449", label: "Dominio absoluto!" },
+    { color: "#58d68d", label: "Se defiende." },
+    { color: "#f1c40f", label: "Más o menos me lo sé." },
+    { color: "#8b4513", label: "Me lo he leído un par de veces." },
+    { color: "#3498db", label: "Me lo quiero estudiar." },
+    { color: "#444", label: "Sin empezar" }
+  ];
+
   return (
     <div className="pantalla-detalle">
-      {/* Botón volver */}
       <button
         className="volver"
         onClick={() => setPantalla("principal")}
@@ -59,82 +114,97 @@ export default function PantallaDetalle({
         ←
       </button>
 
-      {/* Título del tema */}
       <h2 className="titulo">{temas[bolaActiva]}</h2>
 
-      {/* Bola seleccionada */}
-      <div className="bola-seleccionada" style={{ backgroundColor: color }}>
+      <div
+        className="bola-seleccionada"
+        style={{
+          backgroundColor: colorBola,
+          width: "80px",
+          height: "80px",
+          borderRadius: "50%",
+          display: "flex",
+          justifyContent: "center",
+          alignItems: "center",
+          fontSize: "24px",
+          margin: "10px auto"
+        }}
+      >
         {bolaActiva}
       </div>
 
-      {/* Contador */}
       <div className="contador-area">
-        <button onClick={() => cambiarContador(-1)}>−</button>
-        <div className="contador-valor">{contador}</div>
-        <button onClick={() => cambiarContador(1)}>+</button>
+        <button onClick={() => cambiarContadorBola(-1)}>−</button>
+        <div className="contador-valor">{contadorBola}</div>
+        <button onClick={() => cambiarContadorBola(1)}>+</button>
       </div>
 
-      {/* Botones de colores y objetivos */}
-      <div style={{ display: "flex", gap: "20px", marginTop: "20px" }}>
-        <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-          <button className="color-boton verde-oscuro" onClick={() => cambiarColor("#1e8449")}>Dominio absoluto!</button>
-          <button className="color-boton verde-claro" onClick={() => cambiarColor("#58d68d")}>Se defiende.</button>
-          <button className="color-boton amarillo" onClick={() => cambiarColor("#f1c40f")}>Más o menos me lo sé.</button>
-          <button className="color-boton marron" onClick={() => cambiarColor("#8b4513")}>Me lo he leído un par de veces.</button>
-          <button className="color-boton azul" onClick={() => cambiarColor("#3498db")}>Me lo quiero estudiar.</button>
-          <button className="color-boton gris" onClick={() => cambiarColor("#444")}>Sin empezar.</button>
+      <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginTop: "20px" }}>
+        {colores.map(({ color, label }) => (
           <button
-            className="color-boton vino"
-            onClick={() => setMostrarPopup(true)}
-            disabled={comentariosTema.length >= 10} // ❌ Deshabilita si hay 10 objetivos
+            key={color}
+            onClick={() => cambiarColorBola(color)}
             style={{
-              opacity: comentariosTema.length >= 10 ? 0.5 : 1,
-              cursor: comentariosTema.length >= 10 ? "not-allowed" : "pointer"
+              backgroundColor: color,
+              color: "#fff",
+              border: "none",
+              borderRadius: "4px",
+              padding: "5px 10px",
+              cursor: "pointer"
             }}
           >
-            Objetivos
+            {label}
           </button>
-        </div>
+        ))}
 
-        {/* Lista de objetivos */}
-        <div style={{ flex: 1 }}>
-          <h3>Objetivos :</h3>
-          {comentariosTema.length === 0 ? (
-            <p>No hay objetivos aún.</p>
-          ) : (
-            <ul>
-              {comentariosTema.map((obj, idx) => (
-                <li key={idx} style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                  {obj}
-                  <button
-                    onClick={() => pedirEliminar(idx)}
-                    style={{
-                      backgroundColor: "#8B0000",
-                      color: "#fff",
-                      border: "1px solid #8B0000",
-                      borderRadius: "4px",
-                      padding: "2px 6px",
-                      cursor: "pointer"
-                    }}
-                  >
-                    -
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
+        <button
+          onClick={() => setMostrarPopup(true)}
+          disabled={comentariosTema.length >= 10}
+          style={{
+            backgroundColor: "#8B0000",
+            color: "#fff",
+            border: "none",
+            borderRadius: "4px",
+            padding: "5px 10px",
+            cursor: comentariosTema.length >= 10 ? "not-allowed" : "pointer",
+            opacity: comentariosTema.length >= 10 ? 0.5 : 1,
+            marginTop: "10px"
+          }}
+        >
+          Objetivos
+        </button>
       </div>
 
-      {/* Popup para añadir objetivo */}
-      {mostrarPopup && (
-        <PopupObjetivo
-          onClose={() => setMostrarPopup(false)}
-          onAñadir={añadirObjetivo}
-        />
+      {comentariosTema.length > 0 && (
+        <div style={{ marginTop: "20px" }}>
+          <h3>Objetivos:</h3>
+          <ul>
+            {comentariosTema.map((obj, idx) => (
+              <li key={idx} style={{ display: "flex", alignItems: "center", gap: "10px", marginBottom: "5px" }}>
+                {obj}
+                <button
+                  onClick={() => pedirEliminar(idx)}
+                  style={{
+                    backgroundColor: "#8B0000",
+                    color: "#fff",
+                    border: "1px solid #8B0000",
+                    borderRadius: "4px",
+                    padding: "2px 6px",
+                    cursor: "pointer"
+                  }}
+                >
+                  -
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
 
-      {/* Popup de confirmación eliminar */}
+      {mostrarPopup && (
+        <PopupObjetivo onClose={() => setMostrarPopup(false)} onAñadir={añadirObjetivoLocal} />
+      )}
+
       {mostrarConfirmar && (
         <div style={{
           position: "fixed",
@@ -143,7 +213,7 @@ export default function PantallaDetalle({
           display: "flex",
           justifyContent: "center",
           alignItems: "center",
-          zIndex: 1000,
+          zIndex: 1000
         }}>
           <div style={{
             backgroundColor: "#fff",
@@ -155,32 +225,22 @@ export default function PantallaDetalle({
           }}>
             <h3 style={{ color: "#000" }}>¿Deseas eliminar este objetivo?</h3>
             <div style={{ marginTop: "20px", display: "flex", justifyContent: "space-around" }}>
-              <button
-                onClick={() => setMostrarConfirmar(false)}
-                style={{
-                  backgroundColor: "#ff4d4d",
-                  color: "#fff",
-                  border: "1px solid #ff4d4d",
-                  borderRadius: "4px",
-                  padding: "5px 15px",
-                  cursor: "pointer"
-                }}
-              >
-                Cancelar
-              </button>
-              <button
-                onClick={eliminarObjetivo}
-                style={{
-                  backgroundColor: "#8B0000",
-                  color: "#fff",
-                  border: "1px solid #8B0000",
-                  borderRadius: "4px",
-                  padding: "5px 15px",
-                  cursor: "pointer"
-                }}
-              >
-                Eliminar
-              </button>
+              <button onClick={() => setMostrarConfirmar(false)} style={{
+                backgroundColor: "#ff4d4d",
+                color: "#fff",
+                border: "1px solid #ff4d4d",
+                borderRadius: "4px",
+                padding: "5px 15px",
+                cursor: "pointer"
+              }}>Cancelar</button>
+              <button onClick={eliminarObjetivo} style={{
+                backgroundColor: "#8B0000",
+                color: "#fff",
+                border: "1px solid #8B0000",
+                borderRadius: "4px",
+                padding: "5px 15px",
+                cursor: "pointer"
+              }}>Eliminar</button>
             </div>
           </div>
         </div>

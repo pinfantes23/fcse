@@ -1,4 +1,3 @@
-// App.jsx
 import { useState, useEffect } from "react";
 import "./App.css";
 import PantallaInicio from "./components/PantallaInicio";
@@ -6,25 +5,23 @@ import PantallaPrincipal from "./components/PantallaPrincipal";
 import PantallaDetalle from "./components/PantallaDetalle";
 import { useLocalStorage } from "./hooks/useLocalStorage";
 
-import { db } from "./firebase"; // Solo Firestore
+import { db } from "./firebase";
 import { doc, setDoc, getDoc } from "firebase/firestore";
-
 import { temasPoliciaNacional, temasGuardiaCivil, temasFuncionarioPrisiones } from "./temas";
-import { v4 as uuidv4 } from "uuid"; // Para generar ID único por usuario
+import { v4 as uuidv4 } from "uuid";
 
 export default function App() {
   const [pantalla, setPantalla] = useState("inicio");
   const [bolaActiva, setBolaActiva] = useState(null);
-  const [contador, setContador] = useState(0);
   const [color, setColor] = useState("#444");
+  const [contador, setContador] = useState(0);
   const [usuarioId, setUsuarioId] = useState(null);
 
-  // Datos persistentes con localStorage
-  const [progreso, setProgreso] = useLocalStorage("progreso", {});
   const [organizacion, setOrganizacion] = useLocalStorage("organizacion", "");
-  const [objetivos, setObjetivos] = useLocalStorage("objetivos", {});
+  const [progreso, setProgreso] = useLocalStorage("progreso", {});
+  const [objetivos, setObjetivos] = useState({});
 
-  // Generar un ID único para el usuario
+  // Generar ID único de usuario
   useEffect(() => {
     let id = localStorage.getItem("usuarioId");
     if (!id) {
@@ -33,73 +30,46 @@ export default function App() {
     }
     setUsuarioId(id);
 
-    // Cargar datos desde Firestore
+    // Cargar datos de Firestore
     (async () => {
+      if (!organizacion) return;
       const docSnap = await getDoc(doc(db, "usuarios", id));
       if (docSnap.exists()) {
         const data = docSnap.data();
-        setProgreso(data.progreso || progreso);
-        setObjetivos(data.objetivos || objetivos);
-        setOrganizacion(data.organizacion || organizacion);
+        setProgreso(data.progreso || {});
+        setObjetivos(data[`objetivos-${organizacion}`] || {});
       }
     })();
-  }, []);
+  }, [organizacion]);
 
   // Guardar datos en Firestore
   const guardarDatosUsuario = async (nuevosProgreso = progreso, nuevosObjetivos = objetivos) => {
-    if (!usuarioId) return;
+    if (!usuarioId || !organizacion) return;
     await setDoc(
       doc(db, "usuarios", usuarioId),
-      { progreso: nuevosProgreso, objetivos: nuevosObjetivos, organizacion },
+      {
+        progreso: nuevosProgreso,
+        [`objetivos-${organizacion}`]: nuevosObjetivos,
+        organizacion,
+      },
       { merge: true }
     );
   };
 
-  const guardarBola = (nuevoColor, nuevoContador) => {
-    const nuevos = {
-      ...progreso,
-      [bolaActiva]: { color: nuevoColor, contador: nuevoContador },
-    };
-    setProgreso(nuevos); // Esto también actualiza localStorage
-    guardarDatosUsuario(nuevos, objetivos);
-  };
-
-  const cambiarColor = (nuevoColor) => {
-    setColor(nuevoColor);
-    guardarBola(nuevoColor, contador);
-  };
-
-  const cambiarContador = (delta) => {
-    const nuevo = Math.max(0, contador + delta);
-    setContador(nuevo);
-    guardarBola(color, nuevo);
-  };
-
-  const añadirObjetivo = (nuevo) => {
-    if (!nuevo.trim()) return;
-    const claveTema = `${organizacion}-${bolaActiva}`;
-    const nuevos = {
-      ...objetivos,
-      [claveTema]: [...(objetivos[claveTema] || []), nuevo.trim()],
-    };
-    setObjetivos(nuevos); // Esto también actualiza localStorage
-    guardarDatosUsuario(progreso, nuevos);
-  };
-
-  // Selección de temas según organización
-  let temas;
-  if (organizacion === "Policía Nacional") temas = temasPoliciaNacional;
-  else if (organizacion === "Guardia Civil") temas = temasGuardiaCivil;
-  else if (organizacion === "Funcionario de prisiones") temas = temasFuncionarioPrisiones;
-  else temas = {};
-
   const abrirBola = (num) => {
-    const info = progreso[num] || { color: "#444", contador: 0 };
+    const info = progreso[`${organizacion}-${num}`] || { color: "#444", contador: 0 };
     setBolaActiva(num);
     setColor(info.color);
     setContador(info.contador);
     setPantalla("detalle");
   };
+
+  // Selección de temas
+  let temas;
+  if (organizacion === "Policía Nacional") temas = temasPoliciaNacional;
+  else if (organizacion === "Guardia Civil") temas = temasGuardiaCivil;
+  else if (organizacion === "Funcionario de prisiones") temas = temasFuncionarioPrisiones;
+  else temas = {};
 
   return (
     <>
@@ -119,16 +89,18 @@ export default function App() {
         <PantallaDetalle
           temas={temas}
           bolaActiva={bolaActiva}
+          color={color}
           contador={contador}
           setContador={setContador}
-          color={color}
-          cambiarColor={cambiarColor}
-          cambiarContador={cambiarContador}
+          cambiarColor={setColor}
+          cambiarContador={setContador}
           organizacion={organizacion}
           objetivos={objetivos}
           setObjetivos={setObjetivos}
+          progreso={progreso}
+          setProgreso={setProgreso}
           setPantalla={setPantalla}
-          añadirObjetivo={añadirObjetivo}
+          guardarDatosUsuario={guardarDatosUsuario}
         />
       )}
     </>
